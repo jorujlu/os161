@@ -35,6 +35,8 @@
 #include <thread.h>
 #include <current.h>
 #include <syscall.h>
+#include <addrspace.h>
+#include <proc.h>
 
 
 /*
@@ -109,6 +111,9 @@ syscall(struct trapframe *tf)
 				 (userptr_t)tf->tf_a1);
 		break;
 #ifdef UW
+	case SYS_fork:
+	  err=sys_fork(tf, (pid_t *)&retval);
+	  break;
 	case SYS_write:
 	  err = sys_write((int)tf->tf_a0,
 			  (userptr_t)tf->tf_a1,
@@ -116,6 +121,7 @@ syscall(struct trapframe *tf)
 			  (int *)(&retval));
 	  break;
 	case SYS__exit:
+	  // kprintf("tf: %d\n", tf->tf_a0);
 	  sys__exit((int)tf->tf_a0);
 	  /* sys__exit does not return, execution should not get here */
 	  panic("unexpected return from sys__exit");
@@ -128,6 +134,7 @@ syscall(struct trapframe *tf)
 			    (userptr_t)tf->tf_a1,
 			    (int)tf->tf_a2,
 			    (pid_t *)&retval);
+	  // kprintf("%d\n", retval);
 	  break;
 #endif // UW
 
@@ -177,7 +184,14 @@ syscall(struct trapframe *tf)
  * Thus, you can trash it and do things another way if you prefer.
  */
 void
-enter_forked_process(struct trapframe *tf)
+enter_forked_process(void *tf, unsigned long as)
 {
-	(void)tf;
+	curproc_setas((struct addrspace *)as);
+	as_activate();
+	struct trapframe trp;
+	memcpy(&trp, tf, sizeof(struct trapframe));
+	trp.tf_a3 = 0;
+	trp.tf_v0 = 0;
+	trp.tf_epc += 4;
+	mips_usermode(&trp);
 }

@@ -30,6 +30,8 @@ main(int argc, char *argv[])
   }
   else {
     /* parent */
+    int i;
+    waitpid(pid, &i, 0);
     putchar('P');
     putchar('\n');
   }

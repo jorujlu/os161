@@ -69,8 +69,7 @@ static struct semaphore *proc_count_mutex;
 struct semaphore *no_proc_sem;   
 #endif  // UW
 
-
-
+struct proc_info **global_process_array;
 /*
  * Create a proc structure.
  */
@@ -79,7 +78,6 @@ struct proc *
 proc_create(const char *name)
 {
 	struct proc *proc;
-
 	proc = kmalloc(sizeof(*proc));
 	if (proc == NULL) {
 		return NULL;
@@ -89,20 +87,20 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
-
+	proc->children = array_create();
+	array_init(proc->children);
 	threadarray_init(&proc->p_threads);
 	spinlock_init(&proc->p_lock);
-
 	/* VM fields */
 	proc->p_addrspace = NULL;
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
-
+	proc->pid = proc->parent_pid = 0;
 #ifdef UW
 	proc->console = NULL;
 #endif // UW
-
+	
 	return proc;
 }
 
@@ -193,9 +191,15 @@ proc_destroy(struct proc *proc)
 void
 proc_bootstrap(void)
 {
-  kproc = proc_create("[kernel]");
-  if (kproc == NULL) {
-    panic("proc_create for kproc failed\n");
+  glb_arr_lck = lock_create("lck");
+  global_process_array = kmalloc(PID_MAX*sizeof(struct proc_info*));
+  for(int i = 0; i < PID_MAX; i++){
+  		global_process_array[i] = kmalloc(sizeof(struct proc_info));
+  		global_process_array[i]->proc_id = -1;
+  		global_process_array[i]->exit_code = -1;
+  		global_process_array[i]->ex = 0;
+  		global_process_array[i]->exists = 0;
+  		global_process_array[i]->sm = sem_create("ishiqfor", 0);
   }
 #ifdef UW
   proc_count = 0;
@@ -208,6 +212,10 @@ proc_bootstrap(void)
     panic("could not create no_proc_sem semaphore\n");
   }
 #endif // UW 
+  kproc = proc_create("[kernel]");
+  if (kproc == NULL) {
+    panic("proc_create for kproc failed\n");
+  }
 }
 
 /*
@@ -226,7 +234,18 @@ proc_create_runprogram(const char *name)
 	if (proc == NULL) {
 		return NULL;
 	}
-
+	lock_acquire(glb_arr_lck);
+	for(unsigned int i = 0; i < PID_MAX; i++){
+		if(global_process_array[i]->proc_id == -1){
+          proc->pid = i+2;
+		  global_process_array[i]->proc_id = i+2;
+          global_process_array[i]->parent_proc = curproc;
+          global_process_array[i]->exists = 1;
+          array_add(curproc->children, (void*)proc->pid, NULL);
+          break;
+      }
+  	}
+  	lock_release(glb_arr_lck);
 #ifdef UW
 	/* open the console - this should always succeed */
 	console_path = kstrdup("con:");
@@ -273,6 +292,10 @@ proc_create_runprogram(const char *name)
 
 	return proc;
 }
+
+
+
+
 
 /*
  * Add a thread to a process. Either the thread or the process might

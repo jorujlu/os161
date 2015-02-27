@@ -38,13 +38,17 @@
 
 #include <spinlock.h>
 #include <thread.h> /* required for struct threadarray */
+#include <limits.h>
+
 
 struct addrspace;
 struct vnode;
+struct proc_info;
 #ifdef UW
 struct semaphore;
 #endif // UW
-
+extern struct proc_info **global_process_array;
+struct lock * glb_arr_lck;
 /*
  * Process structure.
  */
@@ -52,10 +56,11 @@ struct proc {
 	char *p_name;			/* Name of this process */
 	struct spinlock p_lock;		/* Lock for this structure */
 	struct threadarray p_threads;	/* Threads in this process */
-
+	struct array *children;
+	int parent_pid;
+	int pid;
 	/* VM */
 	struct addrspace *p_addrspace;	/* virtual address space */
-
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 
@@ -71,6 +76,14 @@ struct proc {
 	/* add more material here as needed */
 };
 
+struct proc_info{
+	int proc_id;
+	struct proc * parent_proc;
+	int exit_code;
+	int ex; /* is_exited */
+	int exists;
+	struct semaphore * sm;
+};
 /* This is the process structure for the kernel and for kernel-only threads. */
 extern struct proc *kproc;
 
