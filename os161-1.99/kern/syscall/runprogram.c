@@ -44,7 +44,7 @@
 #include <vfs.h>
 #include <syscall.h>
 #include <test.h>
-
+#include <copyinout.h>
 /*
  * Load program "progname" and start running it in usermode.
  * Does not return except on error.
@@ -52,7 +52,7 @@
  * Calls vfs_open on progname and thus may destroy it.
  */
 int
-runprogram(char *progname)
+runprogram(char *progname, char **args, int argc)
 {
 	struct addrspace *as;
 	struct vnode *v;
@@ -64,7 +64,9 @@ runprogram(char *progname)
 	if (result) {
 		return result;
 	}
-
+	int bbb = (argc+1)*sizeof(char *);
+	vaddr_t *args_temp_2 = kmalloc(bbb);
+	args_temp_2[argc] = 0;
 	/* We should be a new process. */
 	KASSERT(curproc_getas() == NULL);
 
@@ -76,9 +78,14 @@ runprogram(char *progname)
 	}
 
 	/* Switch to it and activate it. */
+	int total_len = 0;
+	int len;
 	curproc_setas(as);
 	as_activate();
-
+	for(int i = 0; i < argc; i++){
+    	len = strlen(args[i]) + 1;
+    	total_len = total_len + ROUNDUP(len, 8);
+  	}
 	/* Load the executable. */
 	result = load_elf(v, &entrypoint);
 	if (result) {
@@ -97,8 +104,18 @@ runprogram(char *progname)
 		return result;
 	}
 
-	/* Warp to user mode. */
-	enter_new_process(0 /*argc*/, NULL /*userspace addr of argv*/,
+	stackptr -= total_len;
+	stackptr -= bbb;
+  	paddr_t p = stackptr + bbb;
+  	for(int i = 0; i < argc; i++){
+    	len = strlen(args[i]) + 1;
+    	len = ROUNDUP(len, 8);
+    	args_temp_2[i] = p;
+    	copyout(args[i], (userptr_t)p, len);
+    	p = p + len;
+  	}
+  	copyout(args_temp_2, (userptr_t)stackptr, bbb);
+	enter_new_process(argc /*argc*/, (userptr_t)stackptr /*userspace addr of argv*/,
 			  stackptr, entrypoint);
 	
 	/* enter_new_process does not return. */

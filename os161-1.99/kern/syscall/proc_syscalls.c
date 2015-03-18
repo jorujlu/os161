@@ -11,6 +11,8 @@
 #include <addrspace.h>
 #include <copyinout.h>
 #include <synch.h>
+#include <vfs.h>
+#include <kern/fcntl.h>
   /* this implementation of sys__exit does not do anything with the exit code */
   /* this needs to be fixed to get exit() and waitpid() working properly */
 
@@ -134,3 +136,68 @@ sys_waitpid(pid_t pid,
   return(0);
 }
 
+
+
+
+int sys_execv(const char *program, char **args){
+  int argc;
+  for (argc = 0; args[argc] != NULL; argc++) {}
+  struct addrspace *as;
+  struct vnode *v;
+  vaddr_t entrypoint, stackptr;
+  int result;
+  char *fname_temp;
+  fname_temp = kstrdup(program);
+  result = vfs_open(fname_temp, O_RDONLY, 0, &v);
+  if(result){
+      return result;
+  }
+  as = as_create();
+  if(as == NULL){
+      vfs_close(v);
+      return ENOMEM;
+  }
+  int bbb = (argc+1)*sizeof(char *);
+  int total_len = 0;
+  char **args_temp = kmalloc(bbb);
+  vaddr_t *args_temp_2 = kmalloc(bbb);
+  args_temp_2[argc] = 0;
+  args_temp[argc] = NULL;
+  int len;
+  for(int i = 0; i < argc; i++){
+    len = strlen(args[i]) + 1;
+    args_temp[i] = kmalloc(sizeof(char) * len);
+    copyin((const_userptr_t)args[i], (void *) args_temp[i], len);
+    total_len = total_len + ROUNDUP(len, 8);
+  }
+  as_deactivate();
+  as_destroy(curproc->p_addrspace);
+  curproc_setas(as);
+  as_activate();
+  result = load_elf(v, &entrypoint);
+  if(result){
+      vfs_close(v);
+      return result;
+  }
+  
+  vfs_close(v);
+  kfree(fname_temp);
+  result = as_define_stack(as, &stackptr);
+  if(result){
+      return result;
+  }
+  stackptr -= total_len;
+  stackptr -= bbb;
+  paddr_t p = stackptr + bbb;
+  for(int i = 0; i < argc; i++){
+    len = strlen(args_temp[i]) + 1;
+    len = ROUNDUP(len, 8);
+    args_temp_2[i] = p;
+    copyout(args_temp[i], (userptr_t)p, len);
+    p = p + len;
+  }
+  copyout(args_temp_2, (userptr_t)stackptr, bbb);
+  enter_new_process(argc, (userptr_t)stackptr, stackptr, entrypoint);
+
+  return -1;
+}
