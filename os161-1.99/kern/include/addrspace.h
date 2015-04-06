@@ -46,15 +46,23 @@ struct vnode;
  *
  * You write this.
  */
+struct PAGE_E{
+  paddr_t phys_addr;
+};
+
 
 struct addrspace {
+  struct PAGE_E * text_table;
+  //paddr_t as_pbase1;
   vaddr_t as_vbase1;
-  paddr_t as_pbase1;
   size_t as_npages1;
+  struct PAGE_E * data_table;
   vaddr_t as_vbase2;
-  paddr_t as_pbase2;
+  //paddr_t as_pbase2;
   size_t as_npages2;
-  paddr_t as_stackpbase;
+  struct PAGE_E * stack_table;
+  //paddr_t as_stackpbase;
+  int elf_done;
 };
 
 /*

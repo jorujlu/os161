@@ -168,5 +168,5 @@ void schedule(void);
  */
 void thread_consider_migration(void);
 
-
+void kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr);
 #endif /* _THREAD_H_ */

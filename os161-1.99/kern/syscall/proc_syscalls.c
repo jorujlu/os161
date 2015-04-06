@@ -197,6 +197,11 @@ int sys_execv(const char *program, char **args){
     p = p + len;
   }
   copyout(args_temp_2, (userptr_t)stackptr, bbb);
+  for(int i = 0; i < argc; i++){
+    kfree(args_temp[i]);
+  }
+  kfree(args_temp);
+  kfree(args_temp_2);
   enter_new_process(argc, (userptr_t)stackptr, stackptr, entrypoint);
 
   return -1;

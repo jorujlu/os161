@@ -459,7 +459,7 @@ cmd_opsmenu(int n, char **a)
 static
 int
 cmd_dth(int n, char **a){
-	dbflags = DB_THREADS;
+	dbflags = DB_VM;
 	(void)n;
 	(void)a;
 	return 0;

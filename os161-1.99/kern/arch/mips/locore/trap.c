@@ -39,7 +39,10 @@
 #include <vm.h>
 #include <mainbus.h>
 #include <syscall.h>
-
+#include <proc.h>
+#include <addrspace.h>
+#include <synch.h>
+#include <kern/wait.h>
 
 /* in exception.S */
 extern void asm_usermode(struct trapframe *tf);
@@ -69,12 +72,13 @@ static const char *const trapcodenames[NTRAPCODES] = {
 /*
  * Function called when user-level code hits a fatal fault.
  */
-static
+
 void
 kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 {
 	int sig = 0;
-
+	(void)epc;
+	(void)vaddr;
 	KASSERT(code < NTRAPCODES);
 	switch (code) {
 	    case EX_IRQ:
@@ -108,13 +112,44 @@ kill_curthread(vaddr_t epc, unsigned code, vaddr_t vaddr)
 		break;
 	}
 
-	/*
-	 * You will probably want to change this.
-	 */
+	  // kprintf("exit: %d\n", exitcode);
+  struct addrspace *as;
+  struct proc *p = curproc;
 
-	kprintf("Fatal user mode trap %u sig %d (%s, epc 0x%x, vaddr 0x%x)\n",
-		code, sig, trapcodenames[code], epc, vaddr);
-	panic("I don't know how to handle this\n");
+  
+  global_process_array[curproc->pid - 2]->exit_code = _MKWAIT_SIG(code);
+  global_process_array[curproc->pid - 2]->ex = 1;
+
+  unsigned int x = array_num(curproc->children);
+  int z;
+  lock_acquire(glb_arr_lck);
+  for(unsigned int i = 0; i < x; i++){
+      z = (int)array_get(curproc->children, i) - 2;
+      if(global_process_array[z]->ex == 1){
+        global_process_array[z]->ex = 0;
+        global_process_array[z]->proc_id = -1;
+        global_process_array[z]->exists = 0;
+      }
+  }
+  V(global_process_array[curproc->pid - 2]->sm);
+  lock_release(glb_arr_lck);
+  DEBUG(DB_SYSCALL,"Syscall: _exit(%d)\n",code);
+
+  KASSERT(curproc->p_addrspace != NULL);
+  as_deactivate();
+  
+  as = curproc_setas(NULL);
+  as_destroy(as);
+
+
+  proc_remthread(curthread);
+
+  
+  proc_destroy(p);
+  
+  thread_exit();
+  /* thread_exit() does not return, so we should never get here */
+  panic("return from thread_exit in sys_exit\n");
 }
 
 /*
