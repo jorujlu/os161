@@ -304,6 +304,7 @@ as_create(void)
 	as->as_vbase2 = 0;
 	//as->as_pbase2 = 0;
 	as->as_npages2 = 0;
+	as->elf_done = false;
 	//as->as_stackpbase = 0;
 
 	return as;
@@ -469,6 +470,7 @@ as_copy(struct addrspace *old, struct addrspace **ret)
 	new->as_npages1 = old->as_npages1;
 	new->as_vbase2 = old->as_vbase2;
 	new->as_npages2 = old->as_npages2;
+	new->elf_done = old->elf_done;
 	new->text_table = kmalloc(sizeof(struct PAGE_E)*old->as_npages1);
 	new->data_table = kmalloc(sizeof(struct PAGE_E)*old->as_npages2);
 	new->stack_table = kmalloc(sizeof(struct PAGE_E)*DUMBVM_STACKPAGES);
