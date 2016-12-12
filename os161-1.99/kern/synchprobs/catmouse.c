@@ -64,9 +64,9 @@ static int NumMice;   // number of mice
 static int NumLoops;  // number of times each cat and mouse should eat
 
 static int CatEatTime = 1;      // length of time a cat spends eating
-static int CatSleepTime = 1;    // length of time a cat spends sleeping
+static int CatSleepTime = 2;    // length of time a cat spends sleeping
 static int MouseEatTime = 1;    // length of time a mouse spends eating
-static int MouseSleepTime = 1;  // length of time a mouse spends sleeping
+static int MouseSleepTime = 2;  // length of time a mouse spends sleeping
 
 /*
  * Once the main driver function (catmouse()) has created the cat and mouse

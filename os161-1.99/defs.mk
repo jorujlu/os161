@@ -13,7 +13,7 @@
 # The things that can be set here are documented in mk/os161.config.mk.
 #
 
-OSTREE=/home/jeyhun/cs350-os161/root
+OSTREE=/u7/jorujlu/cs350-os161/root
 PLATFORM=sys161
 MACHINE=mips
 COMPAT_CFLAGS=
